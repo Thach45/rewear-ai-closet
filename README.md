@@ -1,100 +1,146 @@
-# ReWear
+# ReWear - AI Smart Wardrobe for Sustainable Fashion
 
-ReWear là ứng dụng thời trang bền vững, giúp người dùng quản lý tủ đồ cá nhân, phối đồ với AI, theo dõi lịch mặc và nhận nhắc nhở các món đồ bị bỏ quên.
+ReWear không chỉ là app "quản lý tủ đồ". Đây là hệ thống giúp người dùng ra quyết định mặc đồ thông minh hơn bằng dữ liệu thật, AI thật, và hành vi thật:
 
-## Kiến trúc dự án
+- Biết nên mặc gì ngay hôm nay.
+- Biết món nào đang lãng phí tiền vì ít mặc.
+- Biết lịch sử mặc để tránh lặp outfit nhàm chán.
+- Biết món nào bị bỏ quên để kéo lại vòng đời sử dụng.
 
-- `backend`: API server (Express + Prisma + MongoDB)
-- `expo-app`: ứng dụng mobile (Expo + React Native)
-- `.env`: file môi trường dùng chung cho cả backend và frontend
+Mục tiêu sản phẩm: biến "thời trang bền vững" từ khẩu hiệu thành hành động hàng ngày.
 
-## Tính năng chính
+---
 
-- Đăng ký/đăng nhập, hồ sơ người dùng
-- Quản lý tủ đồ (CRUD garment)
-- Gợi ý phối đồ với AI
-- Lưu outfit và lịch sử outfit đã mặc (`WearLog`)
-- Chỉ số sử dụng đồ:
-  - `wearCount` (số lần mặc)
-  - `purchasePriceVnd` (giá mua)
-  - Cost-per-Wear
-- Local notification nhắc đồ bị bỏ quên (dựa trên `lastWornAt`/`createdAt`)
+## 1) Product Highlights (điểm ăn tiền)
 
-## Tech stack
+### 1. AI Outfit Suggestion (Phối đồ với AI theo ngữ cảnh)
 
-- **Backend:** Node.js, Express, Prisma ORM, MongoDB Atlas, Zod
-- **Frontend:** Expo, React Native, React Navigation
-- **AI/Media:** Gemini API, Hugging Face (IDM-VTON), Cloudinary
+Người dùng chọn:
+- `Vibe` (đi học, đi làm, đi chơi, ...)
+- `Occasion` (ngữ cảnh cụ thể)
 
-## Yêu cầu môi trường
+Hệ thống:
+- Dùng tủ đồ thật của user làm input
+- Sinh gợi ý outfit có lý do (`reason`)
+- Hiển thị và cho phép chốt nhanh bằng 2 hành vi tách bạch:
+  - `Mặc ngay`: ghi nhận hành vi mặc thực tế
+  - `Lưu set`: lưu outfit để dùng lại
 
-- Node.js 18+
-- npm 9+
-- MongoDB Atlas (hoặc MongoDB local)
-- Thiết bị mobile / simulator để chạy Expo
+=> UX tách rõ giữa "dùng thật" và "lưu tham khảo", tránh sai dữ liệu.
 
-## Cấu hình môi trường
+### 2. Wear Intelligence: Cost-per-Wear (CPW)
 
-Dự án dùng một file env chung ở root:
+Mỗi garment có:
+- `purchasePriceVnd`
+- `wearCount`
 
-- `/.env`
+Từ đó app tính:
+- CPW = `purchasePriceVnd / wearCount`
+- Filter `Lãng phí nhất` để surfacing các món có hiệu năng sử dụng thấp
 
-Biến quan trọng:
+=> Đây là phần tạo khác biệt mạnh về business value: giúp user nhìn thấy "chi phí ẩn" trong thói quen mua sắm/mặc đồ.
 
-- Backend: `DATABASE_URL`, `PORT`, `JWT_*`, `CLOUDINARY_*`, `GEMINI_*`, `HF_*`
-- Frontend: `EXPO_PUBLIC_API_URL`
+### 3. Wear Log Calendar (Nhật ký mặc dạng lịch)
 
-> Lưu ý bảo mật: không commit thông tin thật của secret/keys lên public repository.
+Thay vì list thô, ReWear lưu và hiển thị lịch mặc theo tháng:
+- Nhật ký mỗi ngày đã mặc outfit nào
+- Thumbnail outfit trực quan
+- Chạm vào ngày để xem chi tiết set đã mặc
 
-## Cài đặt
+=> Người dùng có trí nhớ thị giác về lịch sử phối đồ, tránh lặp và tăng chất lượng tự phối.
 
-Từ thư mục root:
+### 4. Local Notification: Nhắc đồ bị bỏ quên
 
-```bash
-cd backend && npm install
-cd ../expo-app && npm install
-```
+App tự xác định món "bị quên" dựa trên:
+- `lastWornAt` nếu đã từng mặc
+- `createdAt` nếu chưa từng mặc
 
-## Chạy backend
+Mỗi ngày app nhắc với nội dung động có tên món đồ, không nhắc kiểu generic.
+Khi đổi giờ nhắc, hệ thống tự reschedule.
 
-```bash
-cd backend
-npm run dev
-```
+=> Tạo vòng lặp hành vi: "phát hiện bị quên -> mặc lại -> tăng wearCount -> giảm lãng phí".
 
-API mặc định: `http://localhost:4000`
+### 5. AI Virtual Try-On cho outfit đã lưu
 
-### Prisma
+Virtual try-on trong ReWear tập trung vào **quyết định trước khi mặc thật**:
 
-```bash
-cd backend
-npm run db:generate
-npm run db:push
-```
+- Người dùng có thể mở lại outfit đã lưu và bấm `Mặc thử` ngay trong Profile.
+- Ảnh mặc thử giúp trả lời nhanh 3 câu hỏi thực tế:
+  - Set này có hợp dáng mình không?
+  - Tone màu lên người có ổn không?
+  - Có đáng để mặc hôm nay hay cần đổi set khác?
+- Vì chạy trực tiếp từ outfit đã save, user không cần phối lại từ đầu -> giảm friction, tăng tỷ lệ "ra quyết định mặc thật".
+- Khi chưa ưng, user quay lại Home để đổi vibe/occasion rồi thử tiếp, tạo vòng lặp thử - chỉnh - chốt rất tự nhiên.
 
-## Chạy mobile app (Expo)
+=> Giá trị chức năng: giảm "đắn đo trước gương", tăng tốc độ chốt outfit, và giúp người dùng tự tin mặc lại các set cũ thay vì mua mới.
 
-```bash
-cd expo-app
-npm start
-```
+---
 
-Tuỳ nền tảng:
+## 2) User Journey End-to-End
 
-```bash
-npm run android
-npm run ios
-npm run web
-```
+1. User upload/chụp đồ vào tủ.
+2. Chọn vibe + dịp -> nhận gợi ý AI outfit.
+3. Bấm `Mặc ngay`:
+   - tăng `wearCount`
+   - cập nhật `lastWornAt`
+   - ghi vào `WearLog`
+4. Theo dõi lịch mặc trong tab Nhật ký mặc.
+5. Xem filter `Lãng phí nhất` để biết món nào cần mặc lại.
+6. Nhận local notification nhắc món đang bị bỏ quên.
+7. Với outfit yêu thích, bấm mặc thử AI để preview.
 
-## Notification (đồ bị bỏ quên)
+Toàn bộ vòng lặp xoay quanh 1 mục tiêu: tăng hiệu năng sử dụng tủ đồ cá nhân.
 
-- Lịch local notification chạy hằng ngày theo giờ cấu hình trong:
-  - `expo-app/src/lib/notifications.ts`
-- Nội dung notification được build động theo món đồ bị bỏ quên lâu nhất.
-- Khi đổi giờ cấu hình, logic sẽ tự reschedule (không cần xoá app).
+---
 
-## Cấu trúc thư mục (rút gọn)
+## 3) Functional Scope (đầy đủ tính năng hiện có)
+
+- Auth: đăng ký, đăng nhập, refresh token, logout
+- Hồ sơ người dùng:
+  - avatar/person image
+  - tên, chiều cao, cân nặng
+- Wardrobe:
+  - create/update/delete garment
+  - phân loại garment (`top`, `bottom`, `shoes`, `outer`, `accessory`)
+  - hiển thị số lần mặc + giá mua + CPW
+  - filter theo category + filter `Lãng phí nhất`
+- Outfit:
+  - suggest AI outfit
+  - save / delete saved outfit
+  - try-on saved outfit
+- Wear Log:
+  - create log khi mặc
+  - đọc lịch sử log để render lịch
+- Notification:
+  - local notification hằng ngày
+  - nội dung nhắc theo món đồ bị quên lâu nhất
+
+---
+
+## 4) Why This Is Not a Demo Toy
+
+ReWear không dừng ở màn hình đẹp:
+- Có data model rõ ràng cho hành vi thực (`wearCount`, `lastWornAt`, `WearLog`)
+- Có business metric rõ (`CPW`) thay vì chỉ "AI cho vui"
+- Có flow UX phân nhánh đúng nghĩa (mặc vs lưu)
+- Có integration AI đa nguồn (Gemini + VTON) với error handling thực tế
+- Có reminder loop để tác động lại hành vi user theo thời gian
+
+Nói cách khác: đây là product có hypothesis, có loop, có signal để đo được tác động.
+
+---
+
+## 5) Tech Stack (bằng chứng năng lực triển khai)
+
+- **Mobile:** Expo + React Native + React Navigation
+- **Backend:** Express + TypeScript + Zod
+- **Database:** MongoDB Atlas + Prisma
+- **AI/External:** Gemini, Hugging Face Space (IDM-VTON), Cloudinary
+- **State/UX:** focus-driven refresh, modal flows, calendar visualization, local notifications
+
+---
+
+## 6) Project Structure
 
 ```text
 Rewear/
@@ -106,9 +152,63 @@ Rewear/
   .env
 ```
 
-## Gợi ý phát triển tiếp
+---
 
-- Thêm `.env.example` (không chứa secret thật) để onboarding team
-- Viết test cho các service chính (garment/outfit/notification logic)
-- Thiết lập CI check `build` + `typecheck` cho cả backend và app
+## 7) Setup & Run
+
+### Prerequisites
+
+- Node.js 18+
+- npm 9+
+- MongoDB Atlas (hoặc local MongoDB)
+- Thiết bị mobile / emulator để chạy Expo
+
+### Environment
+
+Dự án dùng **một file env chung** tại root: `/.env`
+
+Nhóm biến chính:
+- Backend: `DATABASE_URL`, `PORT`, `JWT_*`, `CLOUDINARY_*`, `GEMINI_*`, `HF_*`
+- Frontend: `EXPO_PUBLIC_API_URL`
+
+> Bảo mật: không commit secrets thật lên public repo.
+
+### Install
+
+```bash
+cd backend && npm install
+cd ../expo-app && npm install
+```
+
+### Run Backend
+
+```bash
+cd backend
+npm run dev
+```
+
+### Prisma
+
+```bash
+cd backend
+npm run db:generate
+npm run db:push
+```
+
+### Run Expo App
+
+```bash
+cd expo-app
+npm start
+```
+
+Platform shortcuts:
+
+```bash
+npm run android
+npm run ios
+npm run web
+```
+
+---
 
