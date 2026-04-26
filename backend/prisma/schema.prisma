@@ -1,0 +1,167 @@
+// Rewear — Prisma + MongoDB Atlas
+// https://www.prisma.io/docs/orm/overview/databases/mongodb
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth & hồ sơ ---
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  passwordHash String?  // null nếu đăng nhập OAuth sau này
+  name      String
+  personImageUrl String?
+
+  heightCm Int?
+  weightKg Int?
+
+  reuseCount Int   @default(0)
+  co2KgSaved Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  garments      Garment[]
+  userBadges     UserBadge[]
+  outfits        Outfit[]
+  wearLogs      WearLog[]
+  refreshTokens RefreshToken[]
+}
+
+/// Refresh JWT/opaque — chỉ lưu hash, hết hạn xóa khi refresh hoặc logout
+model RefreshToken {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hashedToken  String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([hashedToken])
+}
+
+// --- Tủ đồ ---
+
+enum GarmentCategory {
+  top
+  bottom
+  shoes
+  outer
+  accessory
+}
+
+/// Một món trong tủ đồ
+model Garment {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name     String
+  category GarmentCategory
+
+  imageUrl         String
+  recycledImageUrl String
+
+  brand    String
+  material String
+  fit      String?
+  pattern  String?
+  size     String
+  color    String
+  careWash String
+  careDry  String
+  note     String?
+
+  /// Giá mua tham chiếu để tính Cost-per-Wear (VND)
+  purchasePriceVnd Float?
+  /// Số lần đã mặc món đồ
+  wearCount Int @default(0)
+  /// Lần mặc gần nhất, phục vụ nhắc đồ bị bỏ quên
+  lastWornAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Quan hệ nhiều-nhiều MongoDB (mảng ObjectId hai chiều với Outfit)
+  outfitIds String[]  @db.ObjectId
+  outfits   Outfit[] @relation(fields: [outfitIds], references: [id])
+
+  @@index([userId])
+}
+
+// --- Gợi ý phối đồ & mặc thử ảo (Outfit + Virtual Try-on) ---
+
+/// Set đồ do AI / user lưu; ảnh IDM-VTON; yêu thích để xem lại
+model Outfit {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Vibe / ngữ cảnh (VD: "Đi học", "Năng lượng")
+  vibe String
+  occasion String?
+  reason String?
+
+  /// Danh sách món trong set (áo, quần, phụ kiện…)
+  garmentIds String[]   @db.ObjectId
+  garments   Garment[] @relation(fields: [garmentIds], references: [id])
+
+  /// Ảnh kết quả mặc thử (IDM-VTON / pipeline tương đương)
+  tryOnImageUrl String?
+
+  /// Lưu để xem lại trong mục yêu thích
+  isFavorite Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, isFavorite])
+}
+
+/// Nhật ký outfit đã mặc theo ngày (phục vụ lịch mặc)
+model WearLog {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  vibe     String?
+  occasion String?
+  garmentIds String[] @db.ObjectId
+  wornAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, wornAt])
+}
+
+model Badge {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  slug  String @unique
+  title String
+  emoji String
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @db.ObjectId
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId String @db.ObjectId
+  badge   Badge  @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
