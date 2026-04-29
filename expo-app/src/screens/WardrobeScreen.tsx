@@ -23,6 +23,7 @@ import { theme } from '@/constants/theme';
 import type { WardrobeCategory } from '@/data/dummy';
 import { WARDROBE_CATEGORY_LABELS, type RackWardrobeItem } from '@/data/dummy';
 import {
+  analyzeGarmentMedia,
   createGarment,
   deleteGarment,
   fetchGarments,
@@ -30,7 +31,7 @@ import {
   updateGarment,
 } from '@/lib/garmentsApi';
 import { PrimaryButton } from '@/components/PrimaryButton';
-import { captureClothingPhoto } from '@/utils/captureClothingPhoto';
+import { captureClothingPhoto, pickClothingPhotoFromLibrary } from '@/utils/captureClothingPhoto';
 import { mapGarmentToRackItem, type WardrobeRackItem } from '@/utils/garmentMap';
 import type { UpdateGarmentBody } from '@/types/garment';
 
@@ -86,7 +87,7 @@ export function WardrobeScreen() {
   const [capturing, setCapturing] = useState(false);
   const [capturePreviewUri, setCapturePreviewUri] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState<WardrobeCategory>('top');
-  const [savingNew, setSavingNew] = useState(false);
+  const [savingNewMode, setSavingNewMode] = useState<'normal' | 'ai' | null>(null);
   const [gestureEditRequested, setGestureEditRequested] = useState(false);
 
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -244,9 +245,17 @@ export function WardrobeScreen() {
   };
 
   const handleAddCapture = async () => {
+    Alert.alert('Thêm trang phục', 'Chọn phương thức thêm ảnh', [
+      { text: 'Máy ảnh', onPress: () => void executeAddStep('camera') },
+      { text: 'Thư viện', onPress: () => void executeAddStep('library') },
+      { text: 'Hủy', style: 'cancel' },
+    ]);
+  };
+
+  const executeAddStep = async (source: 'camera' | 'library') => {
     setCapturing(true);
     try {
-      const uri = await captureClothingPhoto();
+      const uri = source === 'camera' ? await captureClothingPhoto() : await pickClothingPhotoFromLibrary();
       if (uri) {
         setCapturePreviewUri(uri);
         setNewCategory('top');
@@ -256,30 +265,51 @@ export function WardrobeScreen() {
     }
   };
 
-  const handleSaveNewGarment = async () => {
-    if (!capturePreviewUri || savingNew) return;
-    const name = `${WARDROBE_CATEGORY_LABELS[newCategory]} ${new Date().toLocaleDateString('vi-VN')}`;
-    setSavingNew(true);
+  const handleSaveNewGarment = async (useAI: boolean) => {
+    if (!capturePreviewUri || savingNewMode) return;
+    setSavingNewMode(useAI ? 'ai' : 'normal');
     try {
+      // 1. Upload media
       const url = await postGarmentMedia({
         uri: capturePreviewUri,
         name: 'garment.jpg',
         type: 'image/jpeg',
       });
+
+      // 2. Call AI analyze
+      let analysisResult = null;
+      if (useAI) {
+        try {
+          analysisResult = await analyzeGarmentMedia(url);
+        } catch (e) {
+          console.log('[WardrobeScreen] AI analyze failed', e);
+        }
+      }
+
+      // 3. Fallbacks and defaults
+      const fallbackName = `${WARDROBE_CATEGORY_LABELS[newCategory]} ${new Date().toLocaleDateString('vi-VN')}`;
+      const validCategories = ['top', 'bottom', 'shoes', 'outer', 'accessory'];
+      const resolvedCategory = (analysisResult?.category && validCategories.includes(analysisResult.category))
+        ? (analysisResult.category as WardrobeCategory)
+        : newCategory;
+
+      // 4. Create Garment with AI attributes
       const created = await createGarment({
-        name,
-        category: newCategory,
+        name: analysisResult?.name && analysisResult.name !== '-' ? analysisResult.name : fallbackName,
+        category: resolvedCategory,
         imageUrl: url,
         recycledImageUrl: url,
-        brand: '—',
-        material: '—',
-        fit: '—',
-        pattern: 'solid',
-        size: '—',
-        color: '—',
-        careWash: '—',
-        careDry: '—',
+        brand: analysisResult?.brand || '—',
+        material: analysisResult?.material || '—',
+        fit: analysisResult?.fit || '—',
+        pattern: analysisResult?.pattern || 'solid',
+        size: analysisResult?.size || '—',
+        color: analysisResult?.color || '—',
+        careWash: analysisResult?.careWash || '—',
+        careDry: analysisResult?.careDry || '—',
       });
+
+      // 5. Update local state
       const mapped = mapGarmentToRackItem(created);
       setItems((prev) => [mapped, ...prev]);
       setCapturePreviewUri(null);
@@ -287,12 +317,32 @@ export function WardrobeScreen() {
       setActiveIndex(0);
       scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
       scrollX.setValue(0);
-      showSavedToast('Đã lưu vào tủ');
+
+      showSavedToast(analysisResult ? 'AI đã tự động điền thông tin' : 'Đã lưu vào tủ');
+
+      // 6. Open Edit Modal automatically for user to review the AI's result
+      setDetailItem(mapped);
+      setDetailDraft({
+        name: mapped.name,
+        category: mapped.category,
+        brand: mapped.brand,
+        material: mapped.material,
+        fit: mapped.fit ?? '—',
+        pattern: mapped.pattern ?? 'solid',
+        size: mapped.size,
+        color: mapped.color,
+        careWash: mapped.careWash,
+        careDry: mapped.careDry,
+        note: mapped.note ?? '',
+        purchasePriceVnd: mapped.purchasePriceVnd != null ? String(Math.round(mapped.purchasePriceVnd)) : '',
+      });
+      setEditingDetail(true);
+
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Lưu thất bại';
       Alert.alert('Lỗi', msg);
     } finally {
-      setSavingNew(false);
+      setSavingNewMode(null);
     }
   };
 
@@ -461,90 +511,90 @@ export function WardrobeScreen() {
             </Text>
           </View>
         ) : (
-        <Animated.ScrollView
-          ref={scrollViewRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={ITEM_WIDTH}
-          decelerationRate="fast"
-          contentContainerStyle={{
-            paddingHorizontal: (SCREEN_W - ITEM_WIDTH) / 2,
-            paddingTop: 40,
-          }}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: true }
-          )}
-          scrollEventThrottle={16}
-        >
-          {visibleItems.map((item, index) => {
-            const inputRange = [
-              (index - 1) * ITEM_WIDTH,
-              index * ITEM_WIDTH,
-              (index + 1) * ITEM_WIDTH,
-            ];
+          <Animated.ScrollView
+            ref={scrollViewRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={ITEM_WIDTH}
+            decelerationRate="fast"
+            contentContainerStyle={{
+              paddingHorizontal: (SCREEN_W - ITEM_WIDTH) / 2,
+              paddingTop: 40,
+            }}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
+          >
+            {visibleItems.map((item, index) => {
+              const inputRange = [
+                (index - 1) * ITEM_WIDTH,
+                index * ITEM_WIDTH,
+                (index + 1) * ITEM_WIDTH,
+              ];
 
-            const scale = scrollX.interpolate({
-              inputRange,
-              outputRange: [0.85, 1.1, 0.85],
-              extrapolate: 'clamp',
-            });
+              const scale = scrollX.interpolate({
+                inputRange,
+                outputRange: [0.85, 1.1, 0.85],
+                extrapolate: 'clamp',
+              });
 
-            const opacity = scrollX.interpolate({
-              inputRange,
-              outputRange: [0.3, 1, 0.3],
-              extrapolate: 'clamp',
-            });
+              const opacity = scrollX.interpolate({
+                inputRange,
+                outputRange: [0.3, 1, 0.3],
+                extrapolate: 'clamp',
+              });
 
-            const translateY = scrollX.interpolate({
-              inputRange,
-              outputRange: [0, 15, 0],
-              extrapolate: 'clamp',
-            });
+              const translateY = scrollX.interpolate({
+                inputRange,
+                outputRange: [0, 15, 0],
+                extrapolate: 'clamp',
+              });
 
-            const rotateZ = scrollX.interpolate({
-              inputRange,
-              outputRange: ['-8deg', '0deg', '8deg'],
-              extrapolate: 'clamp',
-            });
+              const rotateZ = scrollX.interpolate({
+                inputRange,
+                outputRange: ['-8deg', '0deg', '8deg'],
+                extrapolate: 'clamp',
+              });
 
-            return (
-              <View key={item.id} style={{ width: ITEM_WIDTH, alignItems: 'center' }}>
-                <Animated.View
-                  style={[
-                    styles.cardContainer,
-                    {
-                      opacity,
-                      transform: [{ scale }, { translateY }, { rotateZ }],
-                    },
-                  ]}
-                >
-                  <Pressable onPress={() => handlePressCard(index, item)} style={styles.cardPressable}>
-                    {/* Móc treo */}
-                    <View style={styles.hook} />
-                    
-                    {/* Thẻ món đồ bằng Ảnh thật */}
-                    <View style={styles.card}>
-                      <Image source={{ uri: item.image }} style={styles.cardImage} />
-                      
-                      {/* Lớp phủ Gradient mờ cho chữ dễ đọc */}
-                      <View style={styles.cardOverlay} />
+              return (
+                <View key={item.id} style={{ width: ITEM_WIDTH, alignItems: 'center' }}>
+                  <Animated.View
+                    style={[
+                      styles.cardContainer,
+                      {
+                        opacity,
+                        transform: [{ scale }, { translateY }, { rotateZ }],
+                      },
+                    ]}
+                  >
+                    <Pressable onPress={() => handlePressCard(index, item)} style={styles.cardPressable}>
+                      {/* Móc treo */}
+                      <View style={styles.hook} />
 
-                      <View style={styles.wearCountBadge}>
-                        <Ionicons name="repeat-outline" size={13} color={theme.colors.surface} />
-                        <Text style={styles.wearCountText}>{item.wearCount} lần mặc</Text>
+                      {/* Thẻ món đồ bằng Ảnh thật */}
+                      <View style={styles.card}>
+                        <Image source={{ uri: item.image }} style={styles.cardImage} />
+
+                        {/* Lớp phủ Gradient mờ cho chữ dễ đọc */}
+                        <View style={styles.cardOverlay} />
+
+                        <View style={styles.wearCountBadge}>
+                          <Ionicons name="repeat-outline" size={13} color={theme.colors.surface} />
+                          <Text style={styles.wearCountText}>{item.wearCount} lần mặc</Text>
+                        </View>
+
+                        <View style={styles.brandBadge}>
+                          <Text style={styles.brandText} numberOfLines={1}>{item.brand}</Text>
+                        </View>
                       </View>
-                      
-                      <View style={styles.brandBadge}>
-                        <Text style={styles.brandText} numberOfLines={1}>{item.brand}</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                </Animated.View>
-              </View>
-            );
-          })}
-        </Animated.ScrollView>
+                    </Pressable>
+                  </Animated.View>
+                </View>
+              );
+            })}
+          </Animated.ScrollView>
         )}
       </View>
 
@@ -903,8 +953,8 @@ export function WardrobeScreen() {
                                 <Text style={styles.detailValue}>
                                   {detailItem.purchasePriceVnd != null && detailItem.wearCount > 0
                                     ? `${Math.round(
-                                        detailItem.purchasePriceVnd / detailItem.wearCount
-                                      ).toLocaleString('vi-VN')}đ / lần`
+                                      detailItem.purchasePriceVnd / detailItem.wearCount
+                                    ).toLocaleString('vi-VN')}đ / lần`
                                     : 'Chưa đủ dữ liệu'}
                                 </Text>
                               </View>
@@ -953,18 +1003,30 @@ export function WardrobeScreen() {
                 );
               })}
             </ScrollView>
-            <PrimaryButton
-              title="Lưu vào tủ"
-              loading={savingNew}
-              onPress={() => {
-                void handleSaveNewGarment();
-              }}
-              style={styles.captureSaveBtn}
-            />
+            <View style={styles.captureActionsRow}>
+              <Pressable
+                style={[styles.captureSaveNormalBtn, !!savingNewMode && styles.captureSaveNormalBtnDisabled]}
+                onPress={() => void handleSaveNewGarment(false)}
+                disabled={!!savingNewMode}>
+                {savingNewMode === 'normal' ? (
+                  <ActivityIndicator size="small" color={theme.colors.text} />
+                ) : (
+                  <Text style={styles.captureSaveNormalText}>Lưu nhanh</Text>
+                )}
+              </Pressable>
+              <PrimaryButton
+                title="Quét AI & Lưu"
+                loading={savingNewMode === 'ai'}
+                onPress={() => {
+                  void handleSaveNewGarment(true);
+                }}
+                style={styles.captureSaveAiBtn}
+              />
+            </View>
             <Pressable
               style={styles.captureModalDone}
               onPress={() => setCapturePreviewUri(null)}
-              disabled={savingNew}>
+              disabled={!!savingNewMode}>
               <Text style={styles.captureModalDoneText}>Hủy</Text>
             </Pressable>
           </View>
@@ -1028,7 +1090,7 @@ const styles = StyleSheet.create({
   },
   categoryChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: theme.radii.full,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
@@ -1051,6 +1113,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: theme.colors.textSecondary,
+    paddingVertical: 2,
+    lineHeight: 18,
   },
   categoryChipLabelActive: {
     color: theme.colors.ecoGreen,
@@ -1683,7 +1747,7 @@ const styles = StyleSheet.create({
   },
   captureChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: theme.radii.full,
     backgroundColor: theme.colors.surfaceMuted,
     borderWidth: 1,
@@ -1698,12 +1762,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: theme.colors.textSecondary,
+    paddingVertical: 2,
+    lineHeight: 18,
   },
   captureChipLabelActive: {
     color: theme.colors.ecoGreen,
   },
-  captureSaveBtn: {
+  captureActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginTop: theme.spacing.lg,
+  },
+  captureSaveNormalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: theme.radii.full,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureSaveNormalBtnDisabled: {
+    opacity: 0.5,
+  },
+  captureSaveNormalText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  captureSaveAiBtn: {
+    flex: 1,
   },
   captureModalDone: {
     marginTop: theme.spacing.md,

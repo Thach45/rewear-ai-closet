@@ -55,3 +55,9 @@ export const ListGarmentQuerySchema = z.object({
 });
 
 export type ListGarmentQueryDto = z.infer<typeof ListGarmentQuerySchema>;
+
+export const GarmentAnalysisBodySchema = z.object({
+  imageUrl: z.string().url(),
+});
+
+export type GarmentAnalysisBodyDto = z.infer<typeof GarmentAnalysisBodySchema>;

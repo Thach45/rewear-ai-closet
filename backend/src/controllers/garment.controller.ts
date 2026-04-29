@@ -4,7 +4,9 @@ import {
   CreateGarmentBodySchema,
   ListGarmentQuerySchema,
   UpdateGarmentBodySchema,
+  GarmentAnalysisBodySchema,
 } from '../dto/garment.dto.js';
+import { GarmentAiService } from '../services/garment-ai.service.js';
 import { uploadGarmentImageBuffer } from '../lib/cloudinary.js';
 import {
   createGarment,
@@ -107,6 +109,22 @@ export const garmentController = {
       res.status(200).json({ noBgUrl });
     } catch {
       res.status(500).json({ error: 'Upload failed', code: 'UPLOAD_FAILED' });
+    }
+  },
+
+  analyzeMedia: async (req: Request, res: Response): Promise<void> => {
+    const parsed = GarmentAnalysisBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json(validationJson);
+      return;
+    }
+    try {
+      const aiService = new GarmentAiService();
+      const analysis = await aiService.analyzeGarmentFromUrl(parsed.data.imageUrl);
+      res.status(200).json({ analysis });
+    } catch (error) {
+      console.error('[GarmentController] analyzeMedia error:', error);
+      res.status(500).json({ error: 'AI analysis failed', code: 'INTERNAL' });
     }
   },
 };

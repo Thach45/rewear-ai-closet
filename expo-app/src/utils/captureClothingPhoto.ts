@@ -25,3 +25,28 @@ export async function captureClothingPhoto(): Promise<string | null> {
   if (result.canceled || !result.assets[0]?.uri) return null;
   return result.assets[0].uri;
 }
+
+/**
+ * Mở thư viện chọn ảnh quần áo. Trả về URI file cục bộ hoặc null nếu hủy / lỗi.
+ */
+export async function pickClothingPhotoFromLibrary(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    Alert.alert('Chọn ảnh', 'Tính năng chọn ảnh chỉ dùng trên app iOS hoặc Android.');
+    return null;
+  }
+
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Chưa có quyền', 'Bật quyền truy cập thư viện trong Cài đặt để chọn quần áo.');
+    return null;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 0.88,
+    allowsEditing: false,
+  });
+
+  if (result.canceled || !result.assets[0]?.uri) return null;
+  return result.assets[0].uri;
+}

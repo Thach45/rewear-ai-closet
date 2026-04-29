@@ -13,6 +13,7 @@ garmentRouter.post(
   uploadGarmentMiddleware.single('file'),
   garmentController.uploadMedia
 );
+garmentRouter.post('/analyze', requireAuth, garmentController.analyzeMedia);
 garmentRouter.post('/', requireAuth, garmentController.create);
 garmentRouter.post('/:id/wear', requireAuth, garmentController.markWorn);
 garmentRouter.get('/:id', requireAuth, garmentController.getById);

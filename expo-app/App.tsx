@@ -12,6 +12,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { RootNavigator } from '@/navigation/RootNavigator';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+console.log('API:', process.env.EXPO_PUBLIC_API_URL);
 
 export default function App() {
   return (
