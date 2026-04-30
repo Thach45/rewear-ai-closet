@@ -14,14 +14,16 @@ function normalize(value: string | null | undefined): string {
 }
 
 function garmentToLine(item: Garment): string {
+  const sub = item.subCategory ? String(item.subCategory) : '—';
   return [
     `id=${item.id}`,
     `name=${normalize(item.name)}`,
     `category=${item.category}`,
+    `subCategory=${sub}`,
     `brand=${normalize(item.brand)}`,
     `material=${normalize(item.material)}`,
-    `fit=${normalize(item.fit)}`,
-    `pattern=${normalize(item.pattern)}`,
+    `fit=${item.fit != null ? String(item.fit) : '—'}`,
+    `pattern=${item.pattern != null ? String(item.pattern) : '—'}`,
     `color=${normalize(item.color)}`,
     `size=${normalize(item.size)}`,
   ].join(' | ');
@@ -41,6 +43,7 @@ export function buildOutfitPromptFromGarments(
     shoes: garments.filter((g) => g.category === 'shoes'),
     outer: garments.filter((g) => g.category === 'outer'),
     accessory: garments.filter((g) => g.category === 'accessory'),
+    onepiece: garments.filter((g) => g.category === 'onepiece'),
   } as const;
 
   const sections = (Object.keys(grouped) as Array<keyof typeof grouped>).map((category) => {
@@ -63,6 +66,8 @@ export function buildOutfitPromptFromGarments(
     '# YEU_CAU',
     'Hãy chọn 1 set tốt nhất để mặc ngay.',
     'Chỉ dùng ID có trong danh sách ở trên.',
+    'Nếu có mảng ONEPIECE hợp lệ, có thể chọn outfitType=onepiece (đầm/jumpsuit) + giày.',
+    'Nếu không, dùng outfitType=separates: top + bottom + giày.',
     'Ưu tiên fit cân bằng, tránh đụng hoa văn quá mạnh.',
     'Trả về JSON hợp lệ theo key được yêu cầu trong system prompt.',
   ].join('\n');

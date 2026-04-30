@@ -36,6 +36,20 @@ export async function uploadGarmentImageBuffer(
   return buildNoBackgroundUrl(uploaded.publicId);
 }
 
+/** Ảnh kết quả try-on — thư mục con `try-on` */
+export async function uploadTryOnImageBuffer(
+  fileBuffer: Buffer,
+  userId: string
+): Promise<string> {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const uploaded = await uploadImageBuffer(fileBuffer, {
+    folderSuffix: 'try-on',
+    publicId: `${userId}-${suffix}`,
+    overwrite: false,
+  });
+  return uploaded.secureUrl;
+}
+
 async function uploadImageBuffer(
   fileBuffer: Buffer,
   opts: { folderSuffix: string; publicId: string; overwrite: boolean }

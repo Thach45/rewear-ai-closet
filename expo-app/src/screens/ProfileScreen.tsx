@@ -170,8 +170,9 @@ export function ProfileScreen() {
         ) : (
           <View style={styles.outfitList}>
             {savedOutfits.map((outfit) => {
-              const top = outfit.garments.find((g) => g.category === 'top');
-              const bottom = outfit.garments.find((g) => g.category === 'bottom');
+              const onePiece = outfit.garments.find((g) => g.category === 'onepiece');
+              const top = onePiece ?? outfit.garments.find((g) => g.category === 'top');
+              const bottom = onePiece ? undefined : outfit.garments.find((g) => g.category === 'bottom');
               const shoes = outfit.garments.find((g) => g.category === 'shoes');
               return (
                 <Pressable key={outfit.id} style={styles.outfitCard} onPress={() => setSelectedOutfit(outfit)}>
@@ -297,7 +298,9 @@ export function ProfileScreen() {
                 <Text style={styles.modalHint}>Bấm nút để thao tác nhanh</Text>
                 <View style={styles.modalImageRow}>
                   {selectedOutfit.garments
-                    .filter((g) => g.category === 'top' || g.category === 'bottom' || g.category === 'shoes')
+                    .filter((g) =>
+                      ['top', 'bottom', 'shoes', 'onepiece'].includes(g.category)
+                    )
                     .map((g) => (
                       <View key={g.id} style={styles.modalImageWrap}>
                         <Image source={{ uri: g.imageUrl }} style={styles.modalImage} />

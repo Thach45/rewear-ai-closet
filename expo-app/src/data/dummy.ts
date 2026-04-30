@@ -2,7 +2,7 @@
  * Dummy data for UI prototyping — replace with API later
  */
 
-export type WardrobeCategory = 'top' | 'bottom' | 'shoes' | 'outer' | 'accessory';
+export type WardrobeCategory = 'top' | 'bottom' | 'shoes' | 'outer' | 'accessory' | 'onepiece';
 
 /** Nhãn hiển thị — đồng bộ filter tủ đồ / form */
 export const WARDROBE_CATEGORY_LABELS: Record<WardrobeCategory, string> = {
@@ -11,6 +11,7 @@ export const WARDROBE_CATEGORY_LABELS: Record<WardrobeCategory, string> = {
   shoes: 'Giày',
   outer: 'Áo khoác',
   accessory: 'Phụ kiện',
+  onepiece: 'Đầm / Jumpsuit',
 };
 
 /** Tủ đồ (rack) — ảnh thật + tái chế, dùng chung Tủ đồ & Trạm TS */

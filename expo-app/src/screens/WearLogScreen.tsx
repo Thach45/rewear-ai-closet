@@ -128,9 +128,14 @@ export function WearLogScreen() {
   }, []);
   const selectedLogs = selectedDate ? logMap.get(selectedDate) ?? [] : [];
   const selectedPrimaryLog = selectedLogs[0] ?? null;
-  const selectedTop = selectedPrimaryLog?.garments.find((g) => g.category === 'top') ?? null;
-  const selectedBottom = selectedPrimaryLog?.garments.find((g) => g.category === 'bottom') ?? null;
-  const selectedShoes = selectedPrimaryLog?.garments.find((g) => g.category === 'shoes') ?? null;
+  const selectedGarments = selectedPrimaryLog?.garments ?? [];
+  const selectedOnePiece = selectedGarments.find((g) => g.category === 'onepiece');
+  const selectedTop =
+    selectedOnePiece ?? selectedGarments.find((g) => g.category === 'top') ?? null;
+  const selectedBottom = selectedOnePiece
+    ? null
+    : selectedGarments.find((g) => g.category === 'bottom') ?? null;
+  const selectedShoes = selectedGarments.find((g) => g.category === 'shoes') ?? null;
   const weekDayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   const handleGoToday = useCallback(() => {
     const today = startOfDay(new Date());
@@ -191,9 +196,11 @@ export function WearLogScreen() {
                     const active = selectedDate === cell.key;
                     const hasLog = dayLogs.length > 0;
                     const firstLog = dayLogs[0];
-                    const top = firstLog?.garments.find((g) => g.category === 'top');
-                    const bottom = firstLog?.garments.find((g) => g.category === 'bottom');
-                    const shoes = firstLog?.garments.find((g) => g.category === 'shoes');
+                    const gs = firstLog?.garments ?? [];
+                    const op = gs.find((g) => g.category === 'onepiece');
+                    const top = op ?? gs.find((g) => g.category === 'top');
+                    const bottom = op ? undefined : gs.find((g) => g.category === 'bottom');
+                    const shoes = gs.find((g) => g.category === 'shoes');
                     return (
                       <Pressable
                         key={cell.key}

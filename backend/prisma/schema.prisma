@@ -21,15 +21,10 @@ model User {
 
   heightCm Int?
   weightKg Int?
-
-  reuseCount Int   @default(0)
-  co2KgSaved Float @default(0)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   garments      Garment[]
-  userBadges     UserBadge[]
   outfits        Outfit[]
   wearLogs      WearLog[]
   refreshTokens RefreshToken[]
@@ -56,6 +51,95 @@ enum GarmentCategory {
   shoes
   outer
   accessory
+  onepiece
+}
+
+enum GarmentFit {
+  slim
+  regular
+  relaxed
+  oversized
+}
+
+enum GarmentPattern {
+  solid
+  stripe
+  plaid
+  graphic
+  floral
+  other
+}
+
+enum GarmentSubCategory {
+  // top
+  tshirt
+  shirt
+  blouse
+  polo
+  tankTop
+  hoodie
+  sweater
+
+  // bottom
+  jeans
+  trousers
+  shorts
+  skirt
+
+  // shoes
+  sneakers
+  loafers
+  boots
+  sandals
+  heels
+
+  // outer
+  jacket
+  coat
+  blazer
+  cardigan
+
+  // accessory
+  bag
+  hat
+  belt
+  jewelry
+  scarf
+
+  // onepiece
+  dress
+  jumpsuit
+}
+
+enum OutfitVibe {
+  casual
+  energetic
+  minimal
+  street
+  formal
+  sporty
+  vintage
+  smartCasual
+}
+
+enum Occasion {
+  school
+  work
+  date
+  travel
+  party
+  sport
+  home
+  other
+}
+
+enum OutfitItemRole {
+  top
+  bottom
+  shoes
+  outer
+  accessory
+  onepiece
 }
 
 /// Một món trong tủ đồ
@@ -66,22 +150,19 @@ model Garment {
 
   name     String
   category GarmentCategory
+  subCategory GarmentSubCategory?
 
   imageUrl         String
-  recycledImageUrl String
-
-  brand    String
-  material String
-  fit      String?
-  pattern  String?
-  size     String
-  color    String
-  careWash String
-  careDry  String
+  brand    String?
+  material String?
+  fit      GarmentFit?
+  pattern  GarmentPattern?
+  size     String?
+  color    String?
   note     String?
 
   /// Giá mua tham chiếu để tính Cost-per-Wear (VND)
-  purchasePriceVnd Float?
+  purchasePriceVnd Int?
   /// Số lần đã mặc món đồ
   wearCount Int @default(0)
   /// Lần mặc gần nhất, phục vụ nhắc đồ bị bỏ quên
@@ -90,29 +171,28 @@ model Garment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// Quan hệ nhiều-nhiều MongoDB (mảng ObjectId hai chiều với Outfit)
-  outfitIds String[]  @db.ObjectId
-  outfits   Outfit[] @relation(fields: [outfitIds], references: [id])
+  /// Quan hệ qua bảng nối OutfitItem để tránh lệch dữ liệu hai chiều
+  outfitItems OutfitItem[]
+  wearLogItems WearLogItem[]
 
   @@index([userId])
+  @@index([userId, category])
+  @@index([userId, category, subCategory])
+  @@index([userId, lastWornAt])
 }
 
-// --- Gợi ý phối đồ & mặc thử ảo (Outfit + Virtual Try-on) ---
-
-/// Set đồ do AI / user lưu; ảnh IDM-VTON; yêu thích để xem lại
 model Outfit {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// Vibe / ngữ cảnh (VD: "Đi học", "Năng lượng")
-  vibe String
-  occasion String?
+  vibe OutfitVibe
+  occasion Occasion?
   reason String?
 
-  /// Danh sách món trong set (áo, quần, phụ kiện…)
-  garmentIds String[]   @db.ObjectId
-  garments   Garment[] @relation(fields: [garmentIds], references: [id])
+  /// Danh sách món trong set thông qua bảng nối
+  items OutfitItem[]
 
   /// Ảnh kết quả mặc thử (IDM-VTON / pipeline tương đương)
   tryOnImageUrl String?
@@ -123,8 +203,26 @@ model Outfit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  wearLogs WearLog[]
+
   @@index([userId])
   @@index([userId, isFavorite])
+  @@index([userId, createdAt])
+}
+
+model OutfitItem {
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  outfitId  String         @db.ObjectId
+  outfit    Outfit         @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  garmentId String         @db.ObjectId
+  garment   Garment        @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+  role      OutfitItemRole
+  order     Int            @default(0)
+  createdAt DateTime       @default(now())
+
+  @@unique([outfitId, garmentId])
+  @@index([garmentId])
+  @@index([outfitId, role])
 }
 
 /// Nhật ký outfit đã mặc theo ngày (phục vụ lịch mặc)
@@ -132,36 +230,32 @@ model WearLog {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfitId String? @db.ObjectId
+  outfit   Outfit? @relation(fields: [outfitId], references: [id], onDelete: SetNull)
 
-  vibe     String?
-  occasion String?
-  garmentIds String[] @db.ObjectId
+  vibe     OutfitVibe?
+  occasion Occasion?
+  items    WearLogItem[]
   wornAt   DateTime @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId, wornAt])
+  @@index([userId, outfitId])
 }
 
-model Badge {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
-  slug  String @unique
-  title String
-  emoji String
+model WearLogItem {
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  wearLogId String         @db.ObjectId
+  wearLog   WearLog        @relation(fields: [wearLogId], references: [id], onDelete: Cascade)
+  garmentId String         @db.ObjectId
+  garment   Garment        @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+  role      OutfitItemRole
+  order     Int            @default(0)
+  createdAt DateTime       @default(now())
 
-  userBadges UserBadge[]
-}
-
-model UserBadge {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId
-  userId  String @db.ObjectId
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  badgeId String @db.ObjectId
-  badge   Badge  @relation(fields: [badgeId], references: [id], onDelete: Cascade)
-
-  earnedAt DateTime @default(now())
-
-  @@unique([userId, badgeId])
-  @@index([userId])
+  @@unique([wearLogId, garmentId])
+  @@index([garmentId])
+  @@index([wearLogId, role])
 }

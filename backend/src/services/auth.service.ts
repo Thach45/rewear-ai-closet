@@ -65,6 +65,12 @@ async function issueSession(user: User): Promise<{
   const refreshToken = signRefreshToken(user.id);
   const env = loadEnv();
   const expiresAt = new Date(Date.now() + parseDurationToMs(env.JWT_REFRESH_EXPIRES));
+  await prisma.refreshToken.deleteMany({
+    where: {
+      userId: user.id,
+      expiresAt: { lt: new Date() },
+    },
+  });
   await prisma.refreshToken.create({
     data: {
       userId: user.id,

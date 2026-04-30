@@ -11,10 +11,11 @@ import { userRouter } from './routes/user.routes.js';
 
 export function createApp() {
   const app = express();
+  const requestBodyLimit = '10mb';
 
   app.use(helmet());
   app.use(cors({ origin: true }));
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: requestBodyLimit }));
 
   app.use('/health', healthRouter);
   app.use('/auth', authRouter);

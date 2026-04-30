@@ -1,21 +1,19 @@
-export type GarmentCategory = 'top' | 'bottom' | 'shoes' | 'outer' | 'accessory';
+export type GarmentCategory = 'top' | 'bottom' | 'shoes' | 'outer' | 'accessory' | 'onepiece';
 
-/** Payload từ API `/garments` */
+/** Payload từ API `/garments` — đồng bộ Prisma schema */
 export type Garment = {
   id: string;
   userId: string;
   name: string;
   category: GarmentCategory;
+  subCategory?: string | null;
   imageUrl: string;
-  recycledImageUrl: string;
-  brand: string;
-  material: string;
+  brand: string | null;
+  material: string | null;
   fit: string | null;
   pattern: string | null;
-  size: string;
-  color: string;
-  careWash: string;
-  careDry: string;
+  size: string | null;
+  color: string | null;
   note: string | null;
   purchasePriceVnd: number | null;
   wearCount: number;
@@ -27,16 +25,14 @@ export type Garment = {
 export type CreateGarmentBody = {
   name: string;
   category: GarmentCategory;
+  subCategory?: string | null;
   imageUrl: string;
-  recycledImageUrl: string;
-  brand: string;
-  material: string;
-  fit: string;
-  pattern: string;
-  size: string;
-  color: string;
-  careWash: string;
-  careDry: string;
+  brand?: string | null;
+  material?: string | null;
+  fit?: string | null;
+  pattern?: string | null;
+  size?: string | null;
+  color?: string | null;
   note?: string | null;
   purchasePriceVnd?: number | null;
   wearCount?: number;

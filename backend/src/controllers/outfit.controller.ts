@@ -116,7 +116,10 @@ export const outfitController = {
       }
       if (code === 'OUTFIT_MISSING_REQUIRED_ITEMS' || code === 'MISSING_PERSON_IMAGE') {
         res.status(400).json({
-          error: code === 'MISSING_PERSON_IMAGE' ? 'Missing personImageUrl for try-on' : 'Outfit missing top/bottom/shoes',
+          error:
+            code === 'MISSING_PERSON_IMAGE'
+              ? 'Missing personImageUrl for try-on'
+              : 'Outfit must include either (top + bottom + shoes) or (onepiece, without top/bottom)',
           code,
         });
         return;
@@ -149,6 +152,22 @@ export const outfitController = {
           error: 'Try-on provider failed (upstream service error)',
           code: 'TRY_ON_PROVIDER_FAILED',
           hint: 'Please retry in 20-30 seconds. If it keeps failing, verify input images are publicly accessible URLs.',
+          detail: parsedDetail,
+        });
+        return;
+      }
+      if (code.startsWith('TRY_ON_UPLOAD_FAILED:')) {
+        const rawDetail = code.replace('TRY_ON_UPLOAD_FAILED:', '').trim();
+        let parsedDetail: unknown = rawDetail;
+        try {
+          parsedDetail = JSON.parse(rawDetail);
+        } catch {
+          parsedDetail = rawDetail;
+        }
+        res.status(502).json({
+          error: 'Try-on image persistence failed',
+          code: 'TRY_ON_UPLOAD_FAILED',
+          hint: 'The generated image could not be persisted. Please retry.',
           detail: parsedDetail,
         });
         return;

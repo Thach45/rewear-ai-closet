@@ -62,6 +62,7 @@ export function HomeScreen() {
       occasion: string;
     };
   } | null>(null);
+  const [onePieceOutfit, setOnePieceOutfit] = useState(false);
   const [savingOutfit, setSavingOutfit] = useState(false);
   const [markingWear, setMarkingWear] = useState(false);
   const [showCommitSheet, setShowCommitSheet] = useState(false);
@@ -110,6 +111,7 @@ export function HomeScreen() {
   const handleSelectVibe = useCallback(
     (id: string) => {
       setVibeId(id);
+      setOnePieceOutfit(false);
       setAiRows(null);
       randomizeRows();
     },
@@ -129,19 +131,54 @@ export function HomeScreen() {
         Alert.alert('Thiếu đồ', result.reason);
         return;
       }
-      const top = mapGarmentToRackItem(result.outfit.top);
-      const bottom = mapGarmentToRackItem(result.outfit.bottom);
-      const shoe = mapGarmentToRackItem(result.outfit.shoes);
-      setAiRows({
-        top: [top],
-        bottom: [bottom],
-        shoes: [shoe],
-        reason: result.reason,
-        source: {
-          vibe: vibeLabelNow,
-          occasion,
-        },
-      });
+      const o = result.outfit;
+      const onePieceSuggested = Boolean(o.onePiece && !o.top);
+      setOnePieceOutfit(onePieceSuggested);
+      if (onePieceSuggested) {
+        if (!o.onePiece) {
+          Alert.alert('Thiếu đồ', result.reason);
+          return;
+        }
+        const dress = mapGarmentToRackItem(o.onePiece);
+        const shoeRack = o.shoes
+          ? mapGarmentToRackItem(o.shoes)
+          : shoes.find((s) => s.category === 'shoes');
+        if (!shoeRack) {
+          Alert.alert('Thiếu giày', 'Cần có ít nhất một đôi giày trong tủ để lưu bộ đầm/jumpsuit.');
+          setOnePieceOutfit(false);
+          return;
+        }
+        const placeholderBottom = bottoms[0];
+        setAiRows({
+          top: [dress],
+          bottom: placeholderBottom ? [placeholderBottom] : [],
+          shoes: [shoeRack],
+          reason: result.reason,
+          source: {
+            vibe: vibeLabelNow,
+            occasion,
+          },
+        });
+      } else {
+        if (!o.top || !o.bottom || !o.shoes) {
+          Alert.alert('Thiếu đồ', 'AI chưa trả về đủ áo, quần và giày.');
+          setOnePieceOutfit(false);
+          return;
+        }
+        const top = mapGarmentToRackItem(o.top);
+        const bottom = mapGarmentToRackItem(o.bottom);
+        const shoe = mapGarmentToRackItem(o.shoes);
+        setAiRows({
+          top: [top],
+          bottom: [bottom],
+          shoes: [shoe],
+          reason: result.reason,
+          source: {
+            vibe: vibeLabelNow,
+            occasion,
+          },
+        });
+      }
       setTopIndex(0);
       setBottomIndex(0);
       setShoeIndex(0);
@@ -158,20 +195,32 @@ export function HomeScreen() {
     const top = tops[topIndex];
     const bottom = shownBottoms[bottomIndex];
     const shoesRow = shownShoes[shoeIndex];
-    if (!top || !bottom || !shoesRow) return;
+    if (!top || !shoesRow) return;
     const sourceVibe = aiRows?.source.vibe ?? (vibeLabel || 'Hằng ngày');
     const sourceOccasion = aiRows?.source.occasion ?? occasion;
     const sourceReason = aiRows?.reason ?? 'Set đồ do người dùng chọn từ tủ đồ.';
     setSavingOutfit(true);
     try {
-      await saveAiOutfit({
-        vibe: sourceVibe,
-        occasion: sourceOccasion,
-        reason: sourceReason,
-        topId: top.id,
-        bottomId: bottom.id,
-        shoesId: shoesRow.id,
-      });
+      if (onePieceOutfit) {
+        if (top.category !== 'onepiece') return;
+        await saveAiOutfit({
+          vibe: sourceVibe,
+          occasion: sourceOccasion,
+          reason: sourceReason,
+          onePieceId: top.id,
+          shoesId: shoesRow.id,
+        });
+      } else {
+        if (!bottom) return;
+        await saveAiOutfit({
+          vibe: sourceVibe,
+          occasion: sourceOccasion,
+          reason: sourceReason,
+          topId: top.id,
+          bottomId: bottom.id,
+          shoesId: shoesRow.id,
+        });
+      }
       Alert.alert('Đã lưu', 'Set đồ đã được lưu trong tab Profile.');
       setShowCommitSheet(false);
     } catch (e) {
@@ -186,6 +235,7 @@ export function HomeScreen() {
     aiRows?.source.vibe,
     bottomIndex,
     occasion,
+    onePieceOutfit,
     savingOutfit,
     shoeIndex,
     shownBottoms,
@@ -200,18 +250,34 @@ export function HomeScreen() {
     const top = tops[topIndex];
     const bottom = shownBottoms[bottomIndex];
     const shoesRow = shownShoes[shoeIndex];
-    if (!top || !bottom || !shoesRow) return;
-    const garmentIds = Array.from(new Set([top.id, bottom.id, shoesRow.id]));
+    if (!top || !shoesRow) return;
+    if (!onePieceOutfit && !bottom) return;
+    const garmentIds = Array.from(
+      new Set(
+        onePieceOutfit
+          ? [top.id, shoesRow.id]
+          : [top.id, bottom!.id, shoesRow.id]
+      )
+    );
     setMarkingWear(true);
     try {
       await Promise.all(garmentIds.map((id) => markGarmentWorn(id)));
-      await createWearLog({
-        topId: top.id,
-        bottomId: bottom.id,
-        shoesId: shoesRow.id,
-        vibe: aiRows?.source.vibe ?? (vibeLabel || undefined),
-        occasion: aiRows?.source.occasion ?? occasion,
-      });
+      if (onePieceOutfit) {
+        await createWearLog({
+          onePieceId: top.id,
+          shoesId: shoesRow.id,
+          vibe: aiRows?.source.vibe ?? (vibeLabel || undefined),
+          occasion: aiRows?.source.occasion ?? occasion,
+        });
+      } else {
+        await createWearLog({
+          topId: top.id,
+          bottomId: bottom!.id,
+          shoesId: shoesRow.id,
+          vibe: aiRows?.source.vibe ?? (vibeLabel || undefined),
+          occasion: aiRows?.source.occasion ?? occasion,
+        });
+      }
       setShowCommitSheet(false);
       Alert.alert('Mặc ngay', 'Đã lưu lịch outfit hôm nay và tăng số lần mặc.');
       void loadCatalog();
@@ -228,6 +294,7 @@ export function HomeScreen() {
     loadCatalog,
     markingWear,
     occasion,
+    onePieceOutfit,
     shoeIndex,
     shownBottoms,
     shownShoes,

@@ -11,9 +11,10 @@ async function parseJson<T>(res: Response): Promise<T> {
 
 export type SuggestAiOutfitResponse = {
   outfit: {
-    top: Garment;
-    bottom: Garment;
-    shoes: Garment;
+    top: Garment | null;
+    bottom: Garment | null;
+    shoes: Garment | null;
+    onePiece: Garment | null;
   } | null;
   reason: string;
   missing?: string[];
@@ -44,9 +45,17 @@ export type SavedOutfit = {
   reason?: string | null;
   createdAt: string;
   tryOnImageUrl?: string | null;
+  items?: Array<{
+    id: string;
+    role: string;
+    order: number;
+    garmentId: string;
+    garment: Garment;
+  }>;
   garments: Array<{
     id: string;
     category: Garment['category'];
+    subCategory?: string | null;
     name: string;
     imageUrl: string;
     recycledImageUrl: string;
@@ -56,13 +65,22 @@ export type SavedOutfit = {
 
 export type WearLog = {
   id: string;
+  outfitId?: string | null;
   vibe?: string | null;
   occasion?: string | null;
   wornAt: string;
   createdAt: string;
+  items?: Array<{
+    id: string;
+    role: string;
+    order: number;
+    garmentId: string;
+    garment: Garment;
+  }>;
   garments: Array<{
     id: string;
     category: Garment['category'];
+    subCategory?: string | null;
     name: string;
     imageUrl: string;
     recycledImageUrl: string;
@@ -74,9 +92,12 @@ export async function saveAiOutfit(input: {
   vibe: string;
   occasion: string;
   reason?: string;
-  topId: string;
-  bottomId: string;
-  shoesId: string;
+  topId?: string;
+  bottomId?: string;
+  shoesId?: string;
+  onePieceId?: string;
+  outerIds?: string[];
+  accessoryIds?: string[];
 }): Promise<SavedOutfit> {
   const res = await apiFetchAuth('/outfits/save-ai', {
     method: 'POST',
@@ -126,9 +147,13 @@ export async function tryOnSavedOutfit(input: {
 }
 
 export async function createWearLog(input: {
-  topId: string;
-  bottomId: string;
-  shoesId: string;
+  outfitId?: string;
+  topId?: string;
+  bottomId?: string;
+  shoesId?: string;
+  onePieceId?: string;
+  outerIds?: string[];
+  accessoryIds?: string[];
   vibe?: string;
   occasion?: string;
 }): Promise<WearLog> {

@@ -270,15 +270,7 @@ export function WardrobeScreen() {
         name,
         category: newCategory,
         imageUrl: url,
-        recycledImageUrl: url,
-        brand: '—',
-        material: '—',
-        fit: '—',
         pattern: 'solid',
-        size: '—',
-        color: '—',
-        careWash: '—',
-        careDry: '—',
       });
       const mapped = mapGarmentToRackItem(created);
       setItems((prev) => [mapped, ...prev]);
@@ -328,18 +320,29 @@ export function WardrobeScreen() {
     const payload: UpdateGarmentBody = {
       name: detailDraft.name.trim(),
       category: detailDraft.category,
-      brand: detailDraft.brand.trim() || '—',
-      material: detailDraft.material.trim() || '—',
-      fit: detailDraft.fit.trim() || '—',
-      pattern: detailDraft.pattern.trim() || 'solid',
-      size: detailDraft.size.trim() || '—',
-      color: detailDraft.color.trim() || '—',
-      careWash: detailDraft.careWash.trim() || '—',
-      careDry: detailDraft.careDry.trim() || '—',
+      brand: detailDraft.brand.trim() === '' || detailDraft.brand.trim() === '—' ? null : detailDraft.brand.trim(),
+      material:
+        detailDraft.material.trim() === '' || detailDraft.material.trim() === '—'
+          ? null
+          : detailDraft.material.trim(),
+      size:
+        detailDraft.size.trim() === '' || detailDraft.size.trim() === '—' ? null : detailDraft.size.trim(),
+      color:
+        detailDraft.color.trim() === '' || detailDraft.color.trim() === '—' ? null : detailDraft.color.trim(),
       note: detailDraft.note.trim() || null,
       purchasePriceVnd:
-        detailDraft.purchasePriceVnd.trim() === '' ? null : Number(detailDraft.purchasePriceVnd),
+        detailDraft.purchasePriceVnd.trim() === '' ? null : Math.round(Number(detailDraft.purchasePriceVnd)),
     };
+    const patternRaw = detailDraft.pattern.trim();
+    if (['solid', 'stripe', 'plaid', 'graphic', 'floral', 'other'].includes(patternRaw)) {
+      payload.pattern = patternRaw;
+    }
+    const fitRaw = detailDraft.fit.trim();
+    if (fitRaw === '' || fitRaw === '—') {
+      payload.fit = null;
+    } else if (['slim', 'regular', 'relaxed', 'oversized'].includes(fitRaw)) {
+      payload.fit = fitRaw;
+    }
     if (
       payload.purchasePriceVnd !== null &&
       payload.purchasePriceVnd !== undefined &&

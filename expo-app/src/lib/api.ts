@@ -6,7 +6,7 @@ import { authStorage } from '@/lib/authStorage';
 export function getApiBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
   const fromExtra = Constants.expoConfig?.extra?.apiUrl as string | undefined;
-  const base = (fromEnv ?? fromExtra ?? 'http://localhost:4000').trim();
+  const base = (fromEnv ?? fromExtra ?? 'https://rewear-ai-closet.onrender.com').trim();
   return base.replace(/\/$/, '');
 }
 

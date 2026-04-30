@@ -64,12 +64,20 @@ export const garmentController = {
       return;
     }
     const id = paramId(req);
-    const garment = await updateGarment(req.userId!, id, parsed.data);
-    if (!garment) {
-      res.status(404).json({ error: 'Garment not found', code: 'NOT_FOUND' });
-      return;
+    try {
+      const garment = await updateGarment(req.userId!, id, parsed.data);
+      if (!garment) {
+        res.status(404).json({ error: 'Garment not found', code: 'NOT_FOUND' });
+        return;
+      }
+      res.status(200).json({ garment });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'INVALID_GARMENT_TAXONOMY') {
+        res.status(400).json({ error: 'subCategory does not match category', code: 'INVALID_TAXONOMY' });
+        return;
+      }
+      res.status(500).json({ error: 'Update failed', code: 'INTERNAL' });
     }
-    res.status(200).json({ garment });
   },
 
   remove: async (req: Request, res: Response): Promise<void> => {
