@@ -34,7 +34,7 @@ export function RegisterScreen() {
     try {
       const { needsOnboarding } = await signUp({ email: email.trim(), password, name: name.trim() });
       if (needsOnboarding) {
-        navigation.navigate('AvatarSetup');
+        navigation.navigate('UserSurvey');
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Đăng ký thất bại';

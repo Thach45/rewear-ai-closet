@@ -14,7 +14,9 @@ import {
   updateGarment,
   incrementGarmentWearCount,
 } from '../services/garment.service.js';
+import { GarmentAIService } from '../services/garment-ai.service.js';
 
+const aiService = new GarmentAIService();
 const validationJson = { error: 'Invalid body', code: 'VALIDATION' } as const;
 
 function paramId(req: Request): string {
@@ -115,6 +117,22 @@ export const garmentController = {
       res.status(200).json({ noBgUrl });
     } catch {
       res.status(500).json({ error: 'Upload failed', code: 'UPLOAD_FAILED' });
+    }
+  },
+
+  analyze: async (req: Request, res: Response): Promise<void> => {
+    const { imageUrl } = req.body;
+    if (!imageUrl) {
+      res.status(400).json({ error: 'Missing imageUrl', code: 'VALIDATION' });
+      return;
+    }
+    try {
+      const result = await aiService.analyzeImage(imageUrl);
+      res.status(200).json({ analysis: result });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[garment] AI analysis failed', err);
+      res.status(500).json({ error: 'AI analysis failed', code: 'AI_FAILED' });
     }
   },
 };

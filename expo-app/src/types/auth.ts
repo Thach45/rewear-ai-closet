@@ -6,6 +6,11 @@ export type AuthUser = {
   personImageUrl: string | null;
   heightCm: number | null;
   weightKg: number | null;
+  gender: string | null;
+  bodyShape: string | null;
+  skinTone: string | null;
+  ageGroup: string | null;
+  stylePreference: string[];
   reuseCount: number;
   co2KgSaved: number;
   createdAt: string;

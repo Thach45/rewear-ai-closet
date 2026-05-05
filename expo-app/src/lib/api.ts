@@ -156,6 +156,11 @@ export type PatchUserProfileBody = {
   heightCm?: number | null;
   weightKg?: number | null;
   personImageUrl?: string | null;
+  gender?: string | null;
+  bodyShape?: string | null;
+  skinTone?: string | null;
+  ageGroup?: string | null;
+  stylePreference?: string[];
 };
 
 export async function patchUserProfile(body: PatchUserProfileBody): Promise<AuthUser> {

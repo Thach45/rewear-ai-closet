@@ -115,3 +115,15 @@ export async function postGarmentMedia(file: AvatarUploadFile): Promise<string> 
   }
   return data.noBgUrl;
 }
+export async function analyzeGarment(imageUrl: string): Promise<Partial<Garment>> {
+  const res = await apiFetchAuth('/garments/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageUrl }),
+  });
+  const data = await parseJson<{ analysis: any } & ApiErrorBody>(res);
+  if (!res.ok) {
+    throw new Error(data.error ?? `Analysis failed (${res.status})`);
+  }
+  return data.analysis;
+}

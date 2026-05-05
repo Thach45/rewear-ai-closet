@@ -12,6 +12,36 @@ datasource db {
 
 // --- Auth & hồ sơ ---
 
+enum Gender {
+  male
+  female
+  unisex
+}
+
+enum BodyShape {
+  rectangle
+  pear
+  inverted_triangle
+  apple
+  hourglass
+}
+
+enum SkinTone {
+  fair
+  light
+  medium
+  tan
+  dark
+}
+
+enum AgeGroup {
+  under_18
+  age_18_24
+  age_25_34
+  age_35_44
+  above_45
+}
+
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
@@ -21,6 +51,13 @@ model User {
 
   heightCm Int?
   weightKg Int?
+
+  gender      Gender?
+  bodyShape   BodyShape?
+  skinTone    SkinTone?
+  ageGroup    AgeGroup?
+  stylePreference OutfitVibe[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

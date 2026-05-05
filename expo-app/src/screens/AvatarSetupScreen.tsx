@@ -8,35 +8,32 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { useAuth } from '@/context/AuthContext';
 import { theme } from '@/constants/theme';
 
+import { pickImage } from '@/utils/pickImage';
+
 export function AvatarSetupScreen() {
   const { completeOnboarding, uploadAvatar } = useAuth();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const handleUpload = async () => {
+  const handlePickImage = async () => {
     if (busy) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Quyền truy cập', 'Cần quyền truy cập thư viện ảnh để chọn ảnh đại diện.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+    
+    const uri = await pickImage({
       allowsEditing: true,
       aspect: [3, 4],
       quality: 0.85,
     });
 
-    if (result.canceled || !result.assets[0]) return;
+    if (!uri) return;
 
-    const asset = result.assets[0];
-    setPreviewUri(asset.uri);
+    setPreviewUri(uri);
     setBusy(true);
     try {
-      const name = asset.fileName ?? 'avatar.jpg';
-      const type = asset.mimeType ?? 'image/jpeg';
-      await uploadAvatar({ uri: asset.uri, name, type });
+      await uploadAvatar({ 
+        uri, 
+        name: 'avatar.jpg', 
+        type: 'image/jpeg' 
+      });
       await completeOnboarding();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Tải ảnh thất bại';
@@ -56,7 +53,7 @@ export function AvatarSetupScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>Phòng thử đồ ảo</Text>
         <Text style={styles.desc}>
-          Chọn một ảnh toàn thân rõ nét để dùng làm ảnh đại diện (lưu trên server dev).
+          Chọn một ảnh toàn thân rõ nét để dùng làm ảnh đại diện.
         </Text>
         <View style={styles.placeholder}>
           {previewUri ? (
@@ -69,9 +66,9 @@ export function AvatarSetupScreen() {
           )}
         </View>
         <PrimaryButton
-          title="Tải ảnh lên"
+          title="Thêm ảnh"
           onPress={() => {
-            void handleUpload();
+            void handlePickImage();
           }}
           variant="neon"
           loading={busy}

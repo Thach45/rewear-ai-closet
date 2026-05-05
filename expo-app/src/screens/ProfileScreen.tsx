@@ -33,6 +33,8 @@ export function ProfileScreen() {
   const [name, setName] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
+  const [gender, setGender] = useState<string | null>(null);
+  const [bodyShape, setBodyShape] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>([]);
@@ -101,6 +103,8 @@ export function ProfileScreen() {
     setName(user.name ?? '');
     setHeightCm(user.heightCm != null ? String(user.heightCm) : '');
     setWeightKg(user.weightKg != null ? String(user.weightKg) : '');
+    setGender(user.gender ?? null);
+    setBodyShape(user.bodyShape ?? null);
   }, [user]);
 
   if (!user) {
@@ -129,10 +133,12 @@ export function ProfileScreen() {
     );
   }
 
-  const meta =
-    user.heightCm != null && user.weightKg != null
-      ? `${user.heightCm} cm · ${user.weightKg} kg`
-      : 'Chiều cao & cân nặng: chưa cập nhật';
+  const metaParts = [];
+  if (user.heightCm) metaParts.push(`${user.heightCm}cm`);
+  if (user.weightKg) metaParts.push(`${user.weightKg}kg`);
+  if (user.gender) metaParts.push(user.gender === 'male' ? 'Nam' : user.gender === 'female' ? 'Nữ' : 'Khác');
+  
+  const meta = metaParts.length > 0 ? metaParts.join(' · ') : 'Hồ sơ chưa hoàn thiện';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -214,14 +220,35 @@ export function ProfileScreen() {
                 keyboardType="number-pad"
               />
               <Text style={styles.label}>Cân nặng (kg)</Text>
-              <TextInput
-                style={styles.input}
-                value={weightKg}
-                onChangeText={setWeightKg}
-                placeholder="Ví dụ: 60"
-                placeholderTextColor={theme.colors.textSecondary}
-                keyboardType="number-pad"
-              />
+              <Text style={styles.label}>Giới tính</Text>
+              <View style={styles.chipRow}>
+                {['male', 'female', 'unisex'].map((g) => (
+                  <Pressable
+                    key={g}
+                    onPress={() => setGender(g)}
+                    style={[styles.miniChip, gender === g && styles.miniChipActive]}
+                  >
+                    <Text style={[styles.miniChipLabel, gender === g && styles.miniChipLabelActive]}>
+                      {g === 'male' ? 'Nam' : g === 'female' ? 'Nữ' : 'Khác'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Dáng người</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRowScroll}>
+                {['rectangle', 'pear', 'inverted_triangle', 'apple', 'hourglass'].map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={() => setBodyShape(s)}
+                    style={[styles.miniChip, bodyShape === s && styles.miniChipActive]}
+                  >
+                    <Text style={[styles.miniChipLabel, bodyShape === s && styles.miniChipLabelActive]}>
+                      {s === 'rectangle' ? 'H.Chữ nhật' : s === 'pear' ? 'Quả lê' : s === 'apple' ? 'Quả táo' : s === 'hourglass' ? 'Đồng hồ cát' : 'Tam giác ngược'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
               <PrimaryButton
                 title="Lưu thông tin"
                 loading={saving}
@@ -251,6 +278,8 @@ export function ProfileScreen() {
                         name: name.trim(),
                         heightCm: parsedHeight,
                         weightKg: parsedWeight,
+                        gender: gender as any,
+                        bodyShape: bodyShape as any,
                       });
                       Alert.alert('Thành công', 'Đã cập nhật thông tin cá nhân.');
                     } catch (e) {
@@ -671,5 +700,35 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: theme.colors.danger,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+    marginTop: 4,
+  },
+  chipRowScroll: {
+    marginTop: 4,
+  },
+  miniChip: {
+    margin: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  miniChipActive: {
+    borderColor: theme.colors.neon,
+    backgroundColor: theme.colors.neonSoft,
+  },
+  miniChipLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+  },
+  miniChipLabelActive: {
+    color: theme.colors.ecoGreen,
   },
 });

@@ -4,6 +4,7 @@ import React from 'react';
 import { AvatarSetupScreen } from '@/screens/AvatarSetupScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
+import { UserSurveyScreen } from '@/screens/UserSurveyScreen';
 import { SplashOnboardingScreen } from '@/screens/SplashOnboardingScreen';
 import type { AuthStackParamList } from '@/navigation/types';
 
@@ -21,6 +22,7 @@ export function AuthNavigator() {
       <Stack.Screen name="Splash" component={SplashOnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="UserSurvey" component={UserSurveyScreen} />
       <Stack.Screen name="AvatarSetup" component={AvatarSetupScreen} />
     </Stack.Navigator>
   );

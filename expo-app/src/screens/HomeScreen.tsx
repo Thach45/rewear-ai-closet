@@ -26,6 +26,7 @@ import { fetchGarments, markGarmentWorn } from '@/lib/garmentsApi';
 import { createWearLog, saveAiOutfit, suggestAiOutfit } from '@/lib/outfitsApi';
 import type { MainTabParamList } from '@/navigation/types';
 import { mapGarmentToRackItem, type WardrobeRackItem } from '@/utils/garmentMap';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const OCCASIONS = [
@@ -73,7 +74,10 @@ export function HomeScreen() {
   const greeting = useMemo(() => getGreeting(), []);
   const vibeLabel = useMemo(() => VIBES.find((v) => v.id === vibeId)?.label ?? '', [vibeId]);
 
-  const baseTops = useMemo(() => catalogItems.filter((item) => item.category === 'top'), [catalogItems]);
+  const baseTops = useMemo(
+    () => catalogItems.filter((item) => item.category === 'top' || item.category === 'onepiece'),
+    [catalogItems]
+  );
   const bottoms = useMemo(
     () => catalogItems.filter((item) => item.category === 'bottom'),
     [catalogItems]
@@ -82,6 +86,9 @@ export function HomeScreen() {
   const tops = aiRows?.top ?? baseTops;
   const shownBottoms = aiRows?.bottom ?? bottoms;
   const shownShoes = aiRows?.shoes ?? shoes;
+  
+  const currentTop = tops[topIndex];
+  const isSelectedOnePiece = currentTop?.category === 'onepiece';
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -412,7 +419,7 @@ export function HomeScreen() {
 
         <View style={styles.body}>
           <View style={styles.rowWrap}>
-            <Text style={styles.rowTitle}>Áo</Text>
+            <Text style={styles.rowTitle}>{isSelectedOnePiece ? 'Trang phục' : 'Áo'}</Text>
             <FlatList
               data={tops}
               horizontal
@@ -427,21 +434,23 @@ export function HomeScreen() {
             />
           </View>
 
-          <View style={styles.rowWrap}>
-            <Text style={styles.rowTitle}>Quần</Text>
-            <FlatList
-              data={shownBottoms}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <FullWidthCard item={item} />}
-              onViewableItemsChanged={onViewableBottomChanged}
-              viewabilityConfig={viewConfig}
-              decelerationRate="fast"
-              snapToAlignment="center"
-            />
-          </View>
+          {!isSelectedOnePiece && (
+            <View style={styles.rowWrap}>
+              <Text style={styles.rowTitle}>Quần</Text>
+              <FlatList
+                data={shownBottoms}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => <FullWidthCard item={item} />}
+                onViewableItemsChanged={onViewableBottomChanged}
+                viewabilityConfig={viewConfig}
+                decelerationRate="fast"
+                snapToAlignment="center"
+              />
+            </View>
+          )}
 
           <View style={styles.rowWrap}>
             <Text style={styles.rowTitle}>Giày dép</Text>
@@ -773,5 +782,25 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceMuted,
     borderWidth: 2,
     borderColor: theme.colors.ecoGreen,
+  },
+  rowDisabled: {
+    opacity: 0.6,
+  },
+  onePiecePlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.surfaceMuted,
+    marginHorizontal: theme.spacing.lg,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderStyle: 'dashed',
+  },
+  onePiecePlaceholderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
   },
 });

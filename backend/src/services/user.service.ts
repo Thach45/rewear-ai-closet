@@ -9,6 +9,11 @@ export async function updateProfile(userId: string, input: UpdateProfileBodyDto)
   if (input.heightCm !== undefined) data.heightCm = input.heightCm;
   if (input.weightKg !== undefined) data.weightKg = input.weightKg;
   if (input.personImageUrl !== undefined) data.personImageUrl = input.personImageUrl;
+  if (input.gender !== undefined) data.gender = input.gender;
+  if (input.bodyShape !== undefined) data.bodyShape = input.bodyShape;
+  if (input.skinTone !== undefined) data.skinTone = input.skinTone;
+  if (input.ageGroup !== undefined) data.ageGroup = input.ageGroup;
+  if (input.stylePreference !== undefined) data.stylePreference = input.stylePreference as any;
 
   const user = await prisma.user.update({
     where: { id: userId },

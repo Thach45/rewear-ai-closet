@@ -19,9 +19,10 @@ export function SplashOnboardingScreen() {
   useEffect(() => {
     if (isHydrating) return;
     if (user && !isLoggedIn) {
+      const hasSurvey = Boolean(user.gender);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'AvatarSetup' }],
+        routes: [{ name: hasSurvey ? 'AvatarSetup' : 'UserSurvey' }],
       });
     }
   }, [isHydrating, user, isLoggedIn, navigation]);
