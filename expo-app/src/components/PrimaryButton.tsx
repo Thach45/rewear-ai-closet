@@ -4,7 +4,9 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 
@@ -17,6 +19,8 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
+  icon?: React.ReactNode;
 };
 
 export function PrimaryButton({
@@ -26,6 +30,8 @@ export function PrimaryButton({
   disabled,
   loading,
   style,
+  labelStyle,
+  icon,
 }: Props) {
   const isPrimary = variant === 'primary';
   const isNeon = variant === 'neon';
@@ -47,14 +53,18 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator color={isNeon ? theme.colors.ecoGreen : '#fff'} />
       ) : (
-        <Text
-          style={[
-            styles.label,
-            isNeon && styles.labelNeon,
-            isOutline && styles.labelOutline,
-          ]}>
-          {title}
-        </Text>
+        <View style={styles.content}>
+          {icon && <View style={styles.iconContainer}>{icon}</View>}
+          <Text
+            style={[
+              styles.label,
+              isNeon && styles.labelNeon,
+              isOutline && styles.labelOutline,
+              labelStyle,
+            ]}>
+            {title}
+          </Text>
+        </View>
       )}
     </Pressable>
   );
@@ -68,6 +78,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 52,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainer: {
+    marginRight: 8,
   },
   primary: {
     backgroundColor: theme.colors.ecoGreen,

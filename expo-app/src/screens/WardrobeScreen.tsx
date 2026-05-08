@@ -39,6 +39,22 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_W * 0.75;
 const CARD_WIDTH = ITEM_WIDTH - 20;
 
+const FIT_OPTIONS = [
+  { key: 'slim', label: 'Slim' },
+  { key: 'regular', label: 'Regular' },
+  { key: 'relaxed', label: 'Relaxed' },
+  { key: 'oversized', label: 'Oversized' },
+];
+
+const PATTERN_OPTIONS = [
+  { key: 'solid', label: 'Trơn' },
+  { key: 'stripe', label: 'Kẻ sọc' },
+  { key: 'plaid', label: 'Ca-rô' },
+  { key: 'graphic', label: 'Hình in' },
+  { key: 'floral', label: 'Hoa lá' },
+  { key: 'other', label: 'Khác' },
+];
+
 const CATEGORY_CHIPS: { key: WardrobeCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'Tất cả' },
   { key: 'top', label: WARDROBE_CATEGORY_LABELS.top },
@@ -107,9 +123,7 @@ export function WardrobeScreen() {
           tagPullY.setValue(pull);
         },
         onPanResponderRelease: (_evt, gestureState) => {
-          if (gestureState.dx <= -45) {
-            setGestureEditRequested(true);
-          }
+          if (gestureState.dx <= -45) setGestureEditRequested(true);
           Animated.spring(tagPullY, { toValue: 0, useNativeDriver: true }).start();
         },
         onPanResponderTerminate: () => {
@@ -219,7 +233,8 @@ export function WardrobeScreen() {
       setItems(prev => [mapGarmentToRackItem(created), ...prev]);
       setCapturePreviewUri(null);
       setAiResult(null);
-    } catch (e) { Alert.alert('Lỗi', 'Lưu thất bại'); }
+      showSavedToast('Đã lưu món đồ mới');
+    } catch (e: any) { Alert.alert('Lỗi', e.message || 'Lưu thất bại'); }
     finally { setSavingNew(false); }
   };
 
@@ -235,8 +250,38 @@ export function WardrobeScreen() {
       setItems(prev => prev.map(it => it.id === mapped.id ? mapped : it));
       setDetailItem(mapped);
       setEditingDetail(false);
-    } catch (e) { Alert.alert('Lỗi', 'Cập nhật thất bại'); }
+      showSavedToast('Đã cập nhật thông tin');
+    } catch (e: any) { Alert.alert('Lỗi', e.message || 'Cập nhật thất bại'); }
     finally { setSavingDetail(false); }
+  };
+
+  const handleDeleteDetail = () => {
+    if (!detailItem || deletingDetail) return;
+    Alert.alert('Xóa món đồ?', 'Hành động này không thể hoàn tác.', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingDetail(true);
+          try {
+            await deleteGarment(detailItem.id);
+            setItems(prev => prev.filter(it => it.id !== detailItem.id));
+            setDetailItem(null);
+            showSavedToast('Đã xóa món đồ');
+          } catch (e: any) { Alert.alert('Lỗi', e.message || 'Xóa thất bại'); }
+          finally { setDeletingDetail(false); }
+        }
+      }
+    ]);
+  };
+
+  const showSavedToast = (message: string) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+    } else {
+      Alert.alert('Thành công', message);
+    }
   };
 
   const startEditingDetail = useCallback(() => {
@@ -246,7 +291,7 @@ export function WardrobeScreen() {
       category: detailItem.category,
       brand: detailItem.brand || '',
       material: detailItem.material || '',
-      fit: detailItem.fit || '',
+      fit: detailItem.fit || 'regular',
       pattern: detailItem.pattern || 'solid',
       size: detailItem.size || '',
       color: detailItem.color || '',
@@ -311,7 +356,15 @@ export function WardrobeScreen() {
                   transform: [{ scale: scrollX.interpolate({ inputRange: [(index - 1) * ITEM_WIDTH, index * ITEM_WIDTH, (index + 1) * ITEM_WIDTH], outputRange: [0.85, 1.1, 0.85], extrapolate: 'clamp' }) }]
                 }]}>
                   <Pressable onPress={() => handlePressCard(index, item)} style={styles.cardPressable}>
-                    <View style={styles.hook} /><View style={styles.card}><Image source={{ uri: item.image }} style={styles.cardImage} /><View style={styles.cardOverlay} /></View>
+                    <View style={styles.hook} />
+                    <View style={styles.card}>
+                      <Image source={{ uri: item.image }} style={styles.cardImage} />
+                      <View style={styles.cardOverlay} />
+                      <View style={styles.wearCountBadge}>
+                        <Ionicons name="repeat-outline" size={13} color="white" />
+                        <Text style={styles.wearCountText}>{item.wearCount}</Text>
+                      </View>
+                    </View>
                   </Pressable>
                 </Animated.View>
               </View>
@@ -337,6 +390,13 @@ export function WardrobeScreen() {
                       <Text style={styles.modalHeroTitle}>{detailItem.name}</Text>
                       <Text style={styles.modalHeroSubtitle}>{detailItem.brand || 'No Brand'}</Text>
                     </View>
+                    <Pressable 
+                      style={[styles.modalDeleteFab, deletingDetail && { opacity: 0.7 }]} 
+                      onPress={handleDeleteDetail} 
+                      disabled={deletingDetail}
+                    >
+                      {deletingDetail ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="trash-outline" size={20} color="#fff" />}
+                    </Pressable>
                   </View>
 
                   <View style={styles.modalInfoBox}>
@@ -344,6 +404,34 @@ export function WardrobeScreen() {
                       <View style={styles.editFormCard}>
                         <Text style={styles.editLabel}>Tên</Text>
                         <TextInput value={detailDraft.name} onChangeText={t => setDetailDraft(p => p ? {...p, name: t} : p)} style={styles.editInput} />
+                        
+                        <Text style={styles.editLabel}>Danh mục</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.captureChipRow}>
+                          {CREATE_CATEGORY_CHIPS.map(it => (
+                            <Pressable key={it.key} onPress={() => setDetailDraft(p => p ? {...p, category: it.key} : p)} style={[styles.captureChip, detailDraft.category === it.key && styles.captureChipActive]}>
+                              <Text style={[styles.captureChipLabel, detailDraft.category === it.key && styles.captureChipLabelActive]}>{it.label}</Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+
+                        <Text style={styles.editLabel}>Form dáng (Fit)</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.captureChipRow}>
+                          {FIT_OPTIONS.map(it => (
+                            <Pressable key={it.key} onPress={() => setDetailDraft(p => p ? {...p, fit: it.key} : p)} style={[styles.captureChip, detailDraft.fit === it.key && styles.captureChipActive]}>
+                              <Text style={[styles.captureChipLabel, detailDraft.fit === it.key && styles.captureChipLabelActive]}>{it.label}</Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+
+                        <Text style={styles.editLabel}>Hoa văn (Pattern)</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.captureChipRow}>
+                          {PATTERN_OPTIONS.map(it => (
+                            <Pressable key={it.key} onPress={() => setDetailDraft(p => p ? {...p, pattern: it.key} : p)} style={[styles.captureChip, detailDraft.pattern === it.key && styles.captureChipActive]}>
+                              <Text style={[styles.captureChipLabel, detailDraft.pattern === it.key && styles.captureChipLabelActive]}>{it.label}</Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+
                         <Text style={styles.editLabel}>Thương hiệu</Text>
                         <TextInput value={detailDraft.brand} onChangeText={t => setDetailDraft(p => p ? {...p, brand: t} : p)} style={styles.editInput} />
                         <Text style={styles.editLabel}>Chất liệu</Text>
@@ -352,6 +440,7 @@ export function WardrobeScreen() {
                         <TextInput value={detailDraft.color} onChangeText={t => setDetailDraft(p => p ? {...p, color: t} : p)} style={styles.editInput} />
                         <Text style={styles.editLabel}>Giá mua (VND)</Text>
                         <TextInput value={detailDraft.purchasePriceVnd} onChangeText={t => setDetailDraft(p => p ? {...p, purchasePriceVnd: t} : p)} style={styles.editInput} keyboardType="numeric" />
+                        
                         <PrimaryButton title="Lưu thay đổi" loading={savingDetail} onPress={handleSaveDetail} style={{marginTop: 16}} variant="neon" />
                         <Pressable onPress={() => setEditingDetail(false)} style={styles.detailCancelButton}><Text style={styles.detailCancelButtonText}>Hủy</Text></Pressable>
                       </View>
@@ -373,9 +462,9 @@ export function WardrobeScreen() {
                             <View style={styles.detailDivider} />
                             <View style={styles.detailRow}><Ionicons name="color-palette-outline" size={18} color={theme.colors.ecoGreen} /><View style={styles.detailRowBody}><Text style={styles.detailLabel}>Màu sắc</Text><Text style={styles.detailValue}>{detailItem.color || '—'}</Text></View></View>
                             <View style={styles.detailDivider} />
-                            <View style={styles.detailRow}><Ionicons name="body-outline" size={18} color={theme.colors.ecoGreen} /><View style={styles.detailRowBody}><Text style={styles.detailLabel}>Form dáng</Text><Text style={styles.detailValue}>{detailItem.fit || '—'}</Text></View></View>
+                            <View style={styles.detailRow}><Ionicons name="body-outline" size={18} color={theme.colors.ecoGreen} /><View style={styles.detailRowBody}><Text style={styles.detailLabel}>Form dáng</Text><Text style={styles.detailValue}>{detailItem.fit ? FIT_OPTIONS.find(f => f.key === detailItem.fit)?.label || detailItem.fit : '—'}</Text></View></View>
                             <View style={styles.detailDivider} />
-                            <View style={styles.detailRow}><Ionicons name="grid-outline" size={18} color={theme.colors.ecoGreen} /><View style={styles.detailRowBody}><Text style={styles.detailLabel}>Hoa văn</Text><Text style={styles.detailValue}>{detailItem.pattern || '—'}</Text></View></View>
+                            <View style={styles.detailRow}><Ionicons name="grid-outline" size={18} color={theme.colors.ecoGreen} /><View style={styles.detailRowBody}><Text style={styles.detailLabel}>Hoa văn</Text><Text style={styles.detailValue}>{detailItem.pattern ? PATTERN_OPTIONS.find(p => p.key === detailItem.pattern)?.label || detailItem.pattern : '—'}</Text></View></View>
                             <View style={styles.detailDivider} />
                             <View style={styles.detailRow}><Ionicons name="cash-outline" size={18} color={theme.colors.ecoGreen} /><View style={styles.detailRowBody}><Text style={styles.detailLabel}>Giá mua</Text><Text style={styles.detailValue}>{detailItem.purchasePriceVnd ? `${detailItem.purchasePriceVnd.toLocaleString()}đ` : '—'}</Text></View></View>
                             <View style={styles.detailDivider} />
@@ -406,7 +495,15 @@ export function WardrobeScreen() {
               <Image source={{ uri: capturePreviewUri }} style={styles.captureModalImage} resizeMode="cover" />
               {isAnalyzing && <View style={styles.analysisOverlay}><ActivityIndicator size="large" color={theme.colors.neon} /><Text style={styles.analysisText}>AI đang phân tích...</Text></View>}
             </View>
-            {!aiResult && !isAnalyzing && <PrimaryButton title="AI Tự động Phân tích" onPress={handleAIAnalyze} style={styles.aiBtn} icon={<Ionicons name="sparkles" size={18} color="white" />} />}
+            {!aiResult && !isAnalyzing && (
+              <PrimaryButton 
+                title="AI Tự động Phân tích" 
+                onPress={handleAIAnalyze} 
+                variant="neon"
+                style={styles.aiBtn} 
+                icon={<Ionicons name="sparkles" size={18} color={theme.colors.ecoGreen} />} 
+              />
+            )}
             <Text style={styles.captureModalHint}>{aiResult ? 'AI đã điền xong!' : 'Chọn danh mục hoặc dùng AI:'}</Text>
             <Text style={styles.captureFieldLabel}>Danh mục *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.captureChipRow}>
@@ -446,18 +543,21 @@ const styles = StyleSheet.create({
   card: { width: '100%', flex: 1, borderRadius: 24, backgroundColor: theme.colors.surface, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
   cardImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   cardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.1)' },
+  wearCountBadge: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 },
+  wearCountText: { color: 'white', fontSize: 12, fontWeight: '700' },
   modalContainer: { flex: 1, backgroundColor: theme.colors.background },
   modalContent: { flex: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20, backgroundColor: theme.colors.surface },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
   closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
   modalScroll: { paddingBottom: 40 },
-  modalHeroCard: { marginHorizontal: 16, marginTop: 16, borderRadius: 24, overflow: 'hidden' },
+  modalHeroCard: { marginHorizontal: 16, marginTop: 16, borderRadius: 24, overflow: 'hidden', position: 'relative' },
   modalImage: { width: '100%', height: 400 },
   modalHeroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
   modalHeroContent: { position: 'absolute', left: 20, bottom: 20 },
   modalHeroTitle: { fontSize: 28, fontWeight: '900', color: '#fff' },
   modalHeroSubtitle: { color: '#fff', opacity: 0.8 },
+  modalDeleteFab: { position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(220,38,38,0.8)', alignItems: 'center', justifyContent: 'center' },
   modalInfoBox: { padding: 20 },
   modalSectionHeading: { fontSize: 12, fontWeight: '800', color: theme.colors.textSecondary, textTransform: 'uppercase', marginBottom: 8 },
   gestureHint: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 12 },
@@ -479,8 +579,8 @@ const styles = StyleSheet.create({
   captureImageContainer: { width: '100%', height: 250, borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
   captureModalImage: { width: '100%', height: '100%' },
   analysisOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  analysisText: { color: '#fff', marginTop: 8, fontWeight: '600' },
-  aiBtn: { marginBottom: 12, backgroundColor: theme.colors.neon },
+  analysisText: { color: '#000', marginTop: 8, fontWeight: '600' },
+  aiBtn: { marginBottom: 12 },
   captureModalHint: { textAlign: 'center', fontSize: 13, color: theme.colors.textSecondary, marginBottom: 8 },
   captureFieldLabel: { fontSize: 12, fontWeight: '700', marginBottom: 8 },
   captureChipRow: { marginBottom: 16 },

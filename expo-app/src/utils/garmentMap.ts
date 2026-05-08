@@ -14,6 +14,7 @@ export function mapGarmentToRackItem(g: Garment): WardrobeRackItem {
     id: g.id,
     name: g.name,
     category: g.category,
+    subCategory: g.subCategory ?? null,
     image: g.imageUrl,
     recycledImage: g.imageUrl,
     brand: g.brand ?? '—',

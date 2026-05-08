@@ -19,6 +19,7 @@ export interface RackWardrobeItem {
   id: string;
   name: string;
   category: WardrobeCategory;
+  subCategory?: string | null;
   image: string;
   recycledImage: string;
   brand: string;
